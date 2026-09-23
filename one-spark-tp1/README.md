@@ -129,16 +129,20 @@ memory, the rest stay aliased. The negative lookahead above is the whole trick.
 ### Optional: Engram row prefetch
 
 Engram row prefetch is **on by default** (`exllamav3/modules/engram.py` reads
-`EXL3_ENGRAM_PREFETCH`, defaulting to `1`) and is left on in every figure in `BENCHMARKS.md`.
-Disabling it is a measured win on repeated prompts and a wash on varied ones, so it is published as
-an explicit variant rather than folded into the block above, per `AGENTS.md` rule 9:
+`EXL3_ENGRAM_PREFETCH`, defaulting to `1`) and is left on in every figure in `BENCHMARKS.md` except
+the prefetch comparisons themselves.
+Disabling it is a measured win on repeated prompts and, in the later hash-checked measurement, on
+five of six varied subjects too, with byte-identical output. It stays an explicit variant rather
+than part of the block above, per `AGENTS.md` rule 9, because genuinely cold rows are the one case
+where the prefetch has been measured to pay:
 
 ```bash
-export EXL3_ENGRAM_PREFETCH=0    # repeated or highly similar prompts: +3.2% decode
+export EXL3_ENGRAM_PREFETCH=0    # +3.2% to +5.9% repeated prompt; +9.7% to +14.7% on 5 of 6 varied subjects
 ```
 
-Use it when the same prompt or prompt prefix is served repeatedly: a benchmark loop, a fixed system
-prompt, or a long session on one topic. Leave it at the default for varied traffic.
+Turn it off for anything that revisits rows the page cache already holds: a benchmark loop, a fixed
+system prompt, a long session on one topic, and varied traffic once the box has warmed up. Leave it
+on for a cold start on unfamiliar text.
 
 The mechanism explains both halves. The prefetch reads the gathered Engram rows on the host so their
 pages enter the page cache before the GPU faults on them one page at a time. When those pages are
@@ -283,6 +287,23 @@ No native-ExLlamaV3 TP2 or TP4 throughput numbers are published here, because th
 produce them across nodes. Cross-node work on the fork branch got as far as a TCP tensor channel
 (`exllamav3/model/net_transport.py`, 13 passing unit tests) for a future pipeline split; it is
 **not** wired into the forward path and is not a TP implementation.
+
+## Measuring a change on this pack
+
+Open leads, the arithmetic behind them and the gates each one has to clear are in
+[`OPTIMIZATION_CANDIDATES.md`](OPTIMIZATION_CANDIDATES.md). Nothing in that file is measured;
+it exists so the next run tests the right thing.
+
+| Script | Answers |
+|---|---|
+| `scripts/ab_arms.sh` | runs two or more arms in strict alternation, one process per arm |
+| `scripts/ab_dispatch.py` | one arm: per-subject decode speed, draft accounting, and the output token-id hash |
+| `scripts/ab_compare.py` | is the arm deterministic, does it emit the baseline's tokens, and is it faster per subject |
+| `scripts/module_timing.py` | which modules a round spends its time in, via CUDA events rather than the profiler |
+
+A lever ships only if it clears all three gates in that order. Throughput measured against a
+different generated text is not a speedup, which is the trap the confidence-gate table in
+`BENCHMARKS.md` fell into.
 
 ## Serving with TabbyAPI
 
