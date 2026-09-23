@@ -103,6 +103,11 @@ export CHUNK=2048                     # 4096 does not fit once the model is resi
 export CTX=6144                       # raise freely; must be a multiple of 256
 ```
 
+Optional, for warm traffic (repeated prompts, a fixed system prompt, chat on one topic):
+`export EXL3_ENGRAM_PREFETCH=0` is +3% to +15% faster with identical output, and slower on a cold
+box. The trade-off is explained in
+[`one-spark-tp1/README.md`](one-spark-tp1/README.md#opt-in-engram-row-prefetch-off).
+
 **5. Launch.** `scripts/run_tp1.sh` in that folder is the exact launcher, including a pre-flight
 `MemAvailable` check. Load takes about 40 s and drives `MemAvailable` to roughly 5 GiB, which is
 expected. Do not run a second model process alongside it.
